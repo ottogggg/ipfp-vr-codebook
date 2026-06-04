@@ -1,0 +1,83 @@
+#python3 /home/zlq/Code/SparseTSF/run_longExp.py \
+#--data_path /home/zlq/Code/SparseTSF/data/ETT/ETTh2.csv \
+#--model_id ETTh2_96_96 \
+#--model DLinear \
+#--data ETTh2 \
+#--features M \--seq_len 336 \
+#--label_len 48 \
+#--pred_len 96 \
+#--e_layers 2 \
+#--d_layers 1 \
+#--enc_in 7 \
+#--dec_in 7 \
+#--c_out 7 \
+#--freq h \
+#--period_len 24 \
+#--des Exp \
+#--itr 1 \
+#--train_epochs 10 \
+#--batch_size 64 \
+#--learning_rate 0.001 \
+
+#python3 /home/zlq/Code/SparseTSF/run_longExp.py \
+#--data_path /home/zlq/Code/SparseTSF/data/ETT/ETTh2.csv \
+#--model_id ETTh2_96_96 \
+#--model DLinear \
+#--data ETTh2 \
+#--features M \--seq_len 336 \
+#--label_len 48 \
+#--pred_len 192 \
+#--e_layers 2 \
+#--d_layers 1 \
+#--enc_in 7 \
+#--dec_in 7 \
+#--c_out 7 \
+#--freq h \
+#--period_len 24 \
+#--des Exp \
+#--itr 1 \
+#--train_epochs 10 \
+#--batch_size 16 \
+#--learning_rate 0.001 \
+
+#python3 /home/zlq/Code/SparseTSF/run_longExp.py \
+#--data_path /home/zlq/Code/SparseTSF/data/ETT/ETTh2.csv \
+#--model_id ETTh2_96_336 \
+#--model DLinear \
+#--data ETTh2 \
+#--features M \--seq_len 336 \
+#--label_len 48 \
+#--pred_len 336 \
+#--e_layers 2 \
+#--d_layers 1 \
+#--enc_in 7 \
+#--dec_in 7 \
+#--c_out 7 \
+#--freq h \
+#--period_len 24 \
+#--des Exp \
+#--itr 1 \
+#--train_epochs 10 \
+#--batch_size 256 \
+#--learning_rate 0.001 \
+
+python3 /home/zlq/Code/SparseTSF/run_longExp.py \
+--data_path /home/zlq/Code/SparseTSF/data/ETT/ETTh2.csv \
+--model_id ETTh2_96_720 \
+--model DLinear \
+--data ETTh2 \
+--features M \--seq_len 336 \
+--label_len 48 \
+--pred_len 720 \
+--e_layers 2 \
+--d_layers 1 \
+--enc_in 7 \
+--dec_in 7 \
+--c_out 7 \
+--freq h \
+--period_len 24 \
+--des Exp \
+--itr 1 \
+--train_epochs 10 \
+--batch_size 256 \
+--learning_rate 0.01 \

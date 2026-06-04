@@ -1,0 +1,33 @@
+# Local IDE/cache files
+.idea/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Large paper and archive artifacts
+*.pdf
+*.zip
+codex会话记录.md
+02_notes/
+
+# Data and generated experiment artifacts
+03_code/data/
+03_code/dataset/
+04_experiments/**/data/
+04_experiments/**/outputs/
+04_experiments/**/outputs*/
+tmp/
+
+# Training outputs
+checkpoints/
+logs/
+results/
+result.txt
+test_results/
+*.pth
+*.pt
+
+# Python environments
+.venv/
+venv/
+env/
