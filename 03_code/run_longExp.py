@@ -92,6 +92,13 @@ parser.add_argument('--period_list_str', type=str, default='[24,12]', help='多�
 parser.add_argument('--period_list', type=list, default=[24,12], help='多周期')
 parser.add_argument('--num_samples', type=int, default=5, help='采样数')
 parser.add_argument('--samples_ratio', type=float, default=0.4, help='采样率')
+parser.add_argument('--use_relation_codebook', action='store_true', default=False,
+                    help='enable future relation pattern codebook for RIMF')
+parser.add_argument('--relation_codebook_size', type=int, default=8, help='number of future relation codewords')
+parser.add_argument('--relation_codebook_beta_init', type=float, default=0.05,
+                    help='initial mixing ratio from codebook reconstruction')
+parser.add_argument('--relation_codebook_temperature', type=float, default=1.0,
+                    help='temperature for relation-codeword assignment')
 
 # AMD
 parser.add_argument('--n_block', type=int, default=2, help='number of SparseTSF blocks')

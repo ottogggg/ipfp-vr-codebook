@@ -41,7 +41,14 @@ class Model(nn.Module):
 
         self.sca = SCA(
             [
-                SCALayer(self.seq_len, self.d_model, self.pred_len, self.patch_num ,self.dropout, self.enc_in,self.period_len)
+                SCALayer(
+                    self.seq_len, self.d_model, self.pred_len, self.patch_num,
+                    self.dropout, self.enc_in, self.period_len,
+                    use_relation_codebook=getattr(configs, "use_relation_codebook", False),
+                    relation_codebook_size=getattr(configs, "relation_codebook_size", 8),
+                    relation_codebook_beta_init=getattr(configs, "relation_codebook_beta_init", 0.05),
+                    relation_codebook_temperature=getattr(configs, "relation_codebook_temperature", 1.0),
+                )
                 for l in range(configs.d_layers)
             ],
             input_dim=self.seq_len, d_model=self.d_model,

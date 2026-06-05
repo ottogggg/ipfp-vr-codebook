@@ -2,6 +2,7 @@ import math
 from math import sqrt
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from layers.Embed import DataEmbedding_wo_pos
 from utils.tools import masked_softmax
@@ -201,8 +202,41 @@ class RecursiveRelationship(nn.Module):
             History_A = torch.cat([History_A[:, :, 1:],transformed.unsqueeze(-1)], dim=-1)
 
         return torch.stack(future_relations, dim=1)
+
+
+class FutureRelationCodebook(nn.Module):
+    def __init__(self, channel, codebook_size=8, beta_init=0.05, temperature=1.0):
+        super().__init__()
+        self.channel = channel
+        self.codebook_size = codebook_size
+        self.temperature = max(float(temperature), 1e-6)
+
+        self.codebook = nn.Parameter(torch.randn(codebook_size, channel) * 0.02)
+        beta_init = min(max(float(beta_init), 1e-4), 1.0 - 1e-4)
+        beta_logit = math.log(beta_init / (1.0 - beta_init))
+        self.beta_logit = nn.Parameter(torch.tensor(beta_logit, dtype=torch.float32))
+
+    def forward(self, future_a):
+        # future_a: [B, T, C, C]. Each row is treated as one relation pattern.
+        batch, steps, channel, _ = future_a.shape
+        rows = future_a.reshape(-1, channel)
+
+        codewords = torch.softmax(self.codebook, dim=-1)
+        row_norm = F.normalize(rows + 1e-8, p=2, dim=-1)
+        code_norm = F.normalize(codewords + 1e-8, p=2, dim=-1)
+        logits = torch.matmul(row_norm, code_norm.transpose(0, 1)) / self.temperature
+        assignment = torch.softmax(logits, dim=-1)
+        reconstructed = torch.matmul(assignment, codewords).reshape(batch, steps, channel, channel)
+
+        beta = torch.sigmoid(self.beta_logit)
+        mixed = (1.0 - beta) * future_a + beta * reconstructed
+        return mixed / (mixed.sum(dim=-1, keepdim=True) + 1e-8)
+
+
 class SCALayer(nn.Module):
-    def __init__(self, input_dim, d_model, pred_len, patch_num ,dropout, enc_in,period_len, bias=True):
+    def __init__(self, input_dim, d_model, pred_len, patch_num ,dropout, enc_in,period_len, bias=True,
+                 use_relation_codebook=False, relation_codebook_size=8,
+                 relation_codebook_beta_init=0.05, relation_codebook_temperature=1.0):
         super(SCALayer, self).__init__()
         self.channel = enc_in
         self.norm1 = nn.LayerNorm(pred_len)
@@ -225,6 +259,14 @@ class SCALayer(nn.Module):
             channel=enc_in,
             dropout=dropout
         )
+        self.use_relation_codebook = use_relation_codebook
+        if self.use_relation_codebook:
+            self.relation_codebook = FutureRelationCodebook(
+                channel=enc_in,
+                codebook_size=relation_codebook_size,
+                beta_init=relation_codebook_beta_init,
+                temperature=relation_codebook_temperature,
+            )
 
     def forward(self, x_enc, x_tra,History_A):
         # x_tra [256,7,pre_len]
@@ -241,6 +283,8 @@ class SCALayer(nn.Module):
         Future_A = self.Relationship_learning(History_A)
 
         Future_A = masked_softmax(Future_A)
+        if self.use_relation_codebook:
+            Future_A = self.relation_codebook(Future_A)
 
         # Multivariate Synergistic Prerdiction
         x_enc = torch.matmul(Future_A, x_enc.permute(0,2,1,3))

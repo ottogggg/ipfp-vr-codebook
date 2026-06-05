@@ -74,6 +74,10 @@ def build_args(cli_args):
         period_list=[cli_args.period_len],
         num_samples=cli_args.num_samples,
         samples_ratio=0.4,
+        use_relation_codebook=cli_args.use_relation_codebook,
+        relation_codebook_size=cli_args.relation_codebook_size,
+        relation_codebook_beta_init=cli_args.relation_codebook_beta_init,
+        relation_codebook_temperature=cli_args.relation_codebook_temperature,
         n_block=2,
         patch=24,
         mdm_k=3,
@@ -125,6 +129,10 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.05)
     parser.add_argument("--model-type", default="linear", choices=["linear", "mlp"])
     parser.add_argument("--num-samples", type=int, default=7)
+    parser.add_argument("--use-relation-codebook", action="store_true", default=False)
+    parser.add_argument("--relation-codebook-size", type=int, default=8)
+    parser.add_argument("--relation-codebook-beta-init", type=float, default=0.05)
+    parser.add_argument("--relation-codebook-temperature", type=float, default=1.0)
     args = parser.parse_args()
 
     code_dir = Path(args.code_dir).resolve()
@@ -143,7 +151,7 @@ def main():
         state = torch.load(args.checkpoint, map_location=device)
         model.load_state_dict(state)
 
-    captures = {"history": [], "future_raw_layers": {}}
+    captures = {"history": [], "future_raw_layers": {}, "future_codebook_layers": {}}
 
     def history_hook(_module, _inputs, output):
         captures["history"].append(to_numpy(output))
@@ -154,9 +162,17 @@ def main():
 
         return _hook
 
+    def codebook_hook(layer_idx):
+        def _hook(_module, _inputs, output):
+            captures["future_codebook_layers"].setdefault(layer_idx, []).append(to_numpy(output))
+
+        return _hook
+
     handles = [model.Inter_Variable.register_forward_hook(history_hook)]
     for idx, layer in enumerate(model.sca.sca_layers):
         handles.append(layer.Relationship_learning.register_forward_hook(future_hook(idx)))
+        if getattr(layer, "use_relation_codebook", False):
+            handles.append(layer.relation_codebook.register_forward_hook(codebook_hook(idx)))
 
     _, loader = data_provider(cfg, args.split)
     with torch.no_grad():
@@ -181,6 +197,9 @@ def main():
         arrays[f"future_raw_layer{idx}"] = raw
         arrays[f"future_norm_layer{idx}"] = to_numpy(masked_softmax(torch.from_numpy(raw).to(device)))
 
+    for idx, chunks in captures["future_codebook_layers"].items():
+        arrays[f"future_codebook_layer{idx}"] = np.concatenate(chunks, axis=0)
+
     npz_path = output_dir / f"{args.data_name}_rimf_relations_{args.split}.npz"
     np.savez_compressed(npz_path, **arrays)
 
@@ -194,6 +213,10 @@ def main():
         "pred_len": args.pred_len,
         "period_len": args.period_len,
         "enc_in": args.enc_in,
+        "use_relation_codebook": args.use_relation_codebook,
+        "relation_codebook_size": args.relation_codebook_size,
+        "relation_codebook_beta_init": args.relation_codebook_beta_init,
+        "relation_codebook_temperature": args.relation_codebook_temperature,
         "checkpoint": args.checkpoint,
         "arrays": {key: list(value.shape) for key, value in arrays.items()},
         "note": "Future arrays are meaningful for forecasting only when a trained checkpoint is loaded.",
