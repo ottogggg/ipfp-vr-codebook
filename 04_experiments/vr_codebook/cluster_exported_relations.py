@@ -63,6 +63,8 @@ def main() -> None:
     parser.add_argument("--top-m", type=int, default=3)
     parser.add_argument("--k", nargs="+", type=int, default=[4, 8, 16])
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--max-rows", type=int, default=30000)
+    parser.add_argument("--silhouette-sample", type=int, default=10000)
     args = parser.parse_args()
 
     input_path = Path(args.input).resolve()
@@ -75,6 +77,13 @@ def main() -> None:
 
     array = data[args.array_key]
     rows = relation_rows(array, args.top_m)
+    raw_relation_rows = rows.shape[0]
+
+    rng = np.random.default_rng(args.seed)
+    if args.max_rows > 0 and rows.shape[0] > args.max_rows:
+        idx = rng.choice(rows.shape[0], size=args.max_rows, replace=False)
+        idx.sort()
+        rows = rows[idx]
 
     split = int(rows.shape[0] * 0.7)
     train_x = rows[:split]
@@ -91,7 +100,13 @@ def main() -> None:
         train_err = nearest_error(train_x, centers)
         test_err = nearest_error(test_x, centers)
         rand_err = random_center_error(train_x, k, repeats=30, seed=args.seed + k)
-        sil = float(silhouette_score(train_x, train_labels)) if k > 1 else 0.0
+        if k > 1 and args.silhouette_sample > 0 and train_x.shape[0] > args.silhouette_sample:
+            sil_idx = rng.choice(train_x.shape[0], size=args.silhouette_sample, replace=False)
+            sil = float(silhouette_score(train_x[sil_idx], train_labels[sil_idx]))
+        elif k > 1:
+            sil = float(silhouette_score(train_x, train_labels))
+        else:
+            sil = 0.0
         usage = np.bincount(train_labels, minlength=k) / len(train_labels)
 
         plot_codewords(
@@ -106,6 +121,7 @@ def main() -> None:
                 "input": str(input_path),
                 "array_key": args.array_key,
                 "array_shape": list(array.shape),
+                "raw_relation_rows": int(raw_relation_rows),
                 "relation_rows": int(rows.shape[0]),
                 "variables": int(rows.shape[1]),
                 "top_m": int(args.top_m),
