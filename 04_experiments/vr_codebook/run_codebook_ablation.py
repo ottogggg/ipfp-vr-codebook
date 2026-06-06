@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import torch
+import torch.nn.functional as F
 
 
 METRIC_PATTERN = re.compile(
@@ -16,12 +17,19 @@ METRIC_PATTERN = re.compile(
 
 def experiment_configs():
     return [
-        {"name": "baseline", "use_codebook": False, "k": None, "beta_init": None},
-        {"name": "k4_b005", "use_codebook": True, "k": 4, "beta_init": 0.05},
-        {"name": "k8_b005", "use_codebook": True, "k": 8, "beta_init": 0.05},
-        {"name": "k16_b005", "use_codebook": True, "k": 16, "beta_init": 0.05},
-        {"name": "k8_b001", "use_codebook": True, "k": 8, "beta_init": 0.01},
-        {"name": "k8_b010", "use_codebook": True, "k": 8, "beta_init": 0.10},
+        {
+            "name": "baseline_capped",
+            "use_codebook": False,
+            "k": None,
+            "beta_init": None,
+            "beta_max": None,
+        },
+        {"name": "k4_max010", "use_codebook": True, "k": 4, "beta_init": 0.05, "beta_max": 0.10},
+        {"name": "k4_max020", "use_codebook": True, "k": 4, "beta_init": 0.05, "beta_max": 0.20},
+        {"name": "k4_max030", "use_codebook": True, "k": 4, "beta_init": 0.05, "beta_max": 0.30},
+        {"name": "k8_max010", "use_codebook": True, "k": 8, "beta_init": 0.05, "beta_max": 0.10},
+        {"name": "k8_max020", "use_codebook": True, "k": 8, "beta_init": 0.05, "beta_max": 0.20},
+        {"name": "k8_max030", "use_codebook": True, "k": 8, "beta_init": 0.05, "beta_max": 0.30},
     ]
 
 
@@ -33,14 +41,34 @@ def checkpoint_dir(code_dir: Path, name: str, pred_len: int) -> Path:
     return code_dir / "checkpoints" / setting
 
 
-def learned_beta(checkpoint: Path):
+def checkpoint_stats(checkpoint: Path, beta_max):
     if not checkpoint.exists():
-        return None
+        return {
+            "learned_beta": None,
+            "codeword_cosine_mean": None,
+            "codeword_cosine_min": None,
+            "codeword_entropy_mean": None,
+        }
+
     state = torch.load(checkpoint, map_location="cpu")
+    stats = {
+        "learned_beta": None,
+        "codeword_cosine_mean": None,
+        "codeword_cosine_min": None,
+        "codeword_entropy_mean": None,
+    }
     for key, value in state.items():
         if key.endswith("relation_codebook.beta_logit"):
-            return float(torch.sigmoid(value))
-    return None
+            stats["learned_beta"] = float(beta_max * torch.sigmoid(value))
+        elif key.endswith("relation_codebook.codebook"):
+            codewords = torch.softmax(value, dim=-1)
+            similarity = F.normalize(codewords, dim=-1) @ F.normalize(codewords, dim=-1).T
+            off_diagonal = ~torch.eye(codewords.shape[0], dtype=torch.bool)
+            entropy = -(codewords * codewords.clamp_min(1e-12).log()).sum(dim=-1)
+            stats["codeword_cosine_mean"] = float(similarity[off_diagonal].mean())
+            stats["codeword_cosine_min"] = float(similarity[off_diagonal].min())
+            stats["codeword_entropy_mean"] = float(entropy.mean())
+    return stats
 
 
 def build_command(args, config):
@@ -99,6 +127,8 @@ def build_command(args, config):
                 str(config["k"]),
                 "--relation_codebook_beta_init",
                 str(config["beta_init"]),
+                "--relation_codebook_beta_max",
+                str(config["beta_max"]),
                 "--relation_codebook_temperature",
                 str(args.temperature),
             ]
@@ -128,6 +158,7 @@ def run_experiment(args, config):
     metrics = matches[-1].groupdict()
 
     ckpt = checkpoint_dir(args.code_dir, config["name"], args.pred_len) / "checkpoint.pth"
+    stats = checkpoint_stats(ckpt, config["beta_max"]) if config["use_codebook"] else checkpoint_stats(ckpt, None)
     return {
         **config,
         "pred_len": args.pred_len,
@@ -135,7 +166,7 @@ def run_experiment(args, config):
         "mse": float(metrics["mse"]),
         "mae": float(metrics["mae"]),
         "rse": float(metrics["rse"]),
-        "learned_beta": learned_beta(ckpt),
+        **stats,
         "checkpoint": str(ckpt),
     }
 
@@ -155,7 +186,8 @@ def save_results(results, output_dir: Path):
     for result in sorted(results, key=lambda item: item["mse"]):
         print(
             f"{result['name']:12s} mse={result['mse']:.6f} "
-            f"mae={result['mae']:.6f} beta={result['learned_beta']}"
+            f"mae={result['mae']:.6f} beta={result['learned_beta']} "
+            f"codeword_cos={result['codeword_cosine_mean']}"
         )
 
 
@@ -174,7 +206,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path(r"F:\paper\timeSeries\mscf\04_experiments\vr_codebook\outputs_ablation"),
+        default=Path(r"F:\paper\timeSeries\mscf\04_experiments\vr_codebook\outputs_ablation_capped"),
     )
     parser.add_argument("--pred-len", type=int, default=96)
     parser.add_argument("--epochs", type=int, default=3)

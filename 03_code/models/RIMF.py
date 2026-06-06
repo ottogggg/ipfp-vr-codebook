@@ -47,6 +47,7 @@ class Model(nn.Module):
                     use_relation_codebook=getattr(configs, "use_relation_codebook", False),
                     relation_codebook_size=getattr(configs, "relation_codebook_size", 8),
                     relation_codebook_beta_init=getattr(configs, "relation_codebook_beta_init", 0.05),
+                    relation_codebook_beta_max=getattr(configs, "relation_codebook_beta_max", 1.0),
                     relation_codebook_temperature=getattr(configs, "relation_codebook_temperature", 1.0),
                 )
                 for l in range(configs.d_layers)

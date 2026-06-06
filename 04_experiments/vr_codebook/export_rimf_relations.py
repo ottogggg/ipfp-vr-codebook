@@ -77,6 +77,7 @@ def build_args(cli_args):
         use_relation_codebook=cli_args.use_relation_codebook,
         relation_codebook_size=cli_args.relation_codebook_size,
         relation_codebook_beta_init=cli_args.relation_codebook_beta_init,
+        relation_codebook_beta_max=cli_args.relation_codebook_beta_max,
         relation_codebook_temperature=cli_args.relation_codebook_temperature,
         n_block=2,
         patch=24,
@@ -132,6 +133,7 @@ def main():
     parser.add_argument("--use-relation-codebook", action="store_true", default=False)
     parser.add_argument("--relation-codebook-size", type=int, default=8)
     parser.add_argument("--relation-codebook-beta-init", type=float, default=0.05)
+    parser.add_argument("--relation-codebook-beta-max", type=float, default=1.0)
     parser.add_argument("--relation-codebook-temperature", type=float, default=1.0)
     args = parser.parse_args()
 
@@ -216,6 +218,7 @@ def main():
         "use_relation_codebook": args.use_relation_codebook,
         "relation_codebook_size": args.relation_codebook_size,
         "relation_codebook_beta_init": args.relation_codebook_beta_init,
+        "relation_codebook_beta_max": args.relation_codebook_beta_max,
         "relation_codebook_temperature": args.relation_codebook_temperature,
         "checkpoint": args.checkpoint,
         "arrays": {key: list(value.shape) for key, value in arrays.items()},

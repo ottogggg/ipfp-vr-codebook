@@ -97,6 +97,8 @@ parser.add_argument('--use_relation_codebook', action='store_true', default=Fals
 parser.add_argument('--relation_codebook_size', type=int, default=8, help='number of future relation codewords')
 parser.add_argument('--relation_codebook_beta_init', type=float, default=0.05,
                     help='initial mixing ratio from codebook reconstruction')
+parser.add_argument('--relation_codebook_beta_max', type=float, default=1.0,
+                    help='maximum mixing ratio from codebook reconstruction')
 parser.add_argument('--relation_codebook_temperature', type=float, default=1.0,
                     help='temperature for relation-codeword assignment')
 

@@ -205,15 +205,16 @@ class RecursiveRelationship(nn.Module):
 
 
 class FutureRelationCodebook(nn.Module):
-    def __init__(self, channel, codebook_size=8, beta_init=0.05, temperature=1.0):
+    def __init__(self, channel, codebook_size=8, beta_init=0.05, beta_max=1.0, temperature=1.0):
         super().__init__()
         self.channel = channel
         self.codebook_size = codebook_size
+        self.beta_max = min(max(float(beta_max), 1e-4), 1.0)
         self.temperature = max(float(temperature), 1e-6)
 
         self.codebook = nn.Parameter(torch.randn(codebook_size, channel) * 0.02)
-        beta_init = min(max(float(beta_init), 1e-4), 1.0 - 1e-4)
-        beta_logit = math.log(beta_init / (1.0 - beta_init))
+        beta_ratio = min(max(float(beta_init) / self.beta_max, 1e-4), 1.0 - 1e-4)
+        beta_logit = math.log(beta_ratio / (1.0 - beta_ratio))
         self.beta_logit = nn.Parameter(torch.tensor(beta_logit, dtype=torch.float32))
 
     def forward(self, future_a):
@@ -228,7 +229,7 @@ class FutureRelationCodebook(nn.Module):
         assignment = torch.softmax(logits, dim=-1)
         reconstructed = torch.matmul(assignment, codewords).reshape(batch, steps, channel, channel)
 
-        beta = torch.sigmoid(self.beta_logit)
+        beta = self.beta_max * torch.sigmoid(self.beta_logit)
         mixed = (1.0 - beta) * future_a + beta * reconstructed
         return mixed / (mixed.sum(dim=-1, keepdim=True) + 1e-8)
 
@@ -236,7 +237,8 @@ class FutureRelationCodebook(nn.Module):
 class SCALayer(nn.Module):
     def __init__(self, input_dim, d_model, pred_len, patch_num ,dropout, enc_in,period_len, bias=True,
                  use_relation_codebook=False, relation_codebook_size=8,
-                 relation_codebook_beta_init=0.05, relation_codebook_temperature=1.0):
+                 relation_codebook_beta_init=0.05, relation_codebook_beta_max=1.0,
+                 relation_codebook_temperature=1.0):
         super(SCALayer, self).__init__()
         self.channel = enc_in
         self.norm1 = nn.LayerNorm(pred_len)
@@ -265,6 +267,7 @@ class SCALayer(nn.Module):
                 channel=enc_in,
                 codebook_size=relation_codebook_size,
                 beta_init=relation_codebook_beta_init,
+                beta_max=relation_codebook_beta_max,
                 temperature=relation_codebook_temperature,
             )
 
