@@ -363,10 +363,10 @@ class Exp_Main(Exp_Basic):
         # 获取当前时间
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         mae, mse, rmse, mape, mspe, rse, corr = metric(preds, trues)
-        print('mse:{:.3f}, mae:{:.3f}, rse:{:.2f}'.format(mse, mae, rse))
+        print('mse:{:.6f}, mae:{:.6f}, rse:{:.6f}'.format(mse, mae, rse))
         f = open("result.txt", 'a')
         f.write(setting + "  \n")
-        f.write('Time: {},mse:{:.3f}, mae:{:.3f}, rse:{:.2f}'.format(current_time,mse, mae, rse))
+        f.write('Time: {},mse:{:.6f}, mae:{:.6f}, rse:{:.6f}'.format(current_time,mse, mae, rse))
         f.write('\n')
         f.write('\n')
         f.close()
